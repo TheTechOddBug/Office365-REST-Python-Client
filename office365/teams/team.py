@@ -23,7 +23,7 @@ from office365.teams.guest_settings import TeamGuestSettings
 from office365.teams.members.conversation_collection import ConversationMemberCollection
 from office365.teams.members.settings import TeamMemberSettings
 from office365.teams.messaging_settings import TeamMessagingSettings
-from office365.teams.operations.async_operation import TeamsAsyncOperation
+from office365.teams.operations.async_operation import TeamsAsyncOperation, wait_for_operation
 from office365.teams.schedule.schedule import Schedule
 from office365.teams.specialization import TeamSpecialization
 from office365.teams.summary import TeamSummary
@@ -271,17 +271,30 @@ class Team(Entity):
         visibility: TeamVisibilityType,
         description: str | None = None,
         classification: str | None = None,
-    ) -> Self:
-        """Create a copy of a team. This operation also creates a copy of the corresponding group.
+    ) -> TeamsAsyncOperation:
+        """Create a copy of a team (async) — returns the ``teamsAsyncOperation``.
+
+        The operation is submitted on ``execute_query()`` (HTTP 202). Poll the
+        returned operation (:meth:`TeamsAsyncOperation.poll_for_status`) to wait
+        for provisioning; ``target_resource_id`` then holds the cloned team id.
+        Use :meth:`clone_and_wait` for the convenience path that returns the
+        ready cloned team.
 
         Args:
+            mail_nickname: The mail nickname for the cloned team.
             display_name: The display name for the cloned team.
             parts_to_clone: The parts of the team to clone.
             visibility: The visibility of the cloned team.
             description: The description for the cloned team.
-            mail_nickname: The mail nickname for the cloned team.
             classification: The classification for the cloned team.
         """
+        return_type = TeamsAsyncOperation(self.context)
+
+        def _process_response(resp: requests.Response) -> None:
+            loc = resp.headers.get("Location", None)
+            if loc is not None:
+                return_type._resource_path = ODataPathBuilder.parse_url(loc)
+
         payload = {
             "displayName": display_name,
             "partsToClone": parts_to_clone.name,
@@ -294,16 +307,62 @@ class Team(Entity):
         if classification is not None:
             payload["classification"] = classification
         qry = ServiceOperationQuery(self, "clone", None, payload, None, None)
+        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        return return_type
+
+    def clone_and_wait(
+        self,
+        mail_nickname: str,
+        display_name: str,
+        parts_to_clone: ClonableTeamParts,
+        visibility: TeamVisibilityType,
+        description: str | None = None,
+        classification: str | None = None,
+    ) -> Team:
+        """Clone a team and wait for provisioning (deferred).
+
+        Chains the async clone, the ``teamsAsyncOperation`` poll, and a full
+        ``GET`` of the cloned team through ``after_execute`` hooks — one
+        ``execute_query()`` returns the provisioned cloned :class:`Team` with its
+        properties loaded.
+
+        Args:
+            mail_nickname: The mail nickname for the cloned team.
+            display_name: The display name for the cloned team.
+            parts_to_clone: The parts of the team to clone.
+            visibility: The visibility of the cloned team.
+            description: The description for the cloned team.
+            classification: The classification for the cloned team.
+        """
+        return_type = Team(self.context)
+        self.context.teams.add_child(return_type)
 
         def _process_response(resp: requests.Response) -> None:
             loc = resp.headers.get("Location", None)
-            if loc is not None:
-                operation_path = ODataPathBuilder.parse_url(loc)
-                operation = TeamsAsyncOperation(self.context, operation_path)
-                self.operations.add_child(operation)
+            assert loc is not None
+            operation = TeamsAsyncOperation(self.context, ODataPathBuilder.parse_url(loc))
 
+            def _on_succeeded(op: TeamsAsyncOperation) -> None:
+                if op.target_resource_id:
+                    return_type.set_property("id", op.target_resource_id, False)
+                return_type.get()  # queue a full GET to load the cloned team's properties
+
+            wait_for_operation(operation, success_callback=_on_succeeded)
+
+        payload = {
+            "displayName": display_name,
+            "partsToClone": parts_to_clone.name,
+            "visibility": visibility.name,
+        }
+        if description is not None:
+            payload["description"] = description
+        if mail_nickname is not None:
+            payload["mailNickname"] = mail_nickname
+        if classification is not None:
+            payload["classification"] = classification
+        qry = ServiceOperationQuery(self, "clone", None, payload, None, None)
         self.context.add_query(qry).after_execute(_process_response, include_response=True)
-        return self
+        return return_type
 
     def send_activity_notification(
         self,

@@ -7,6 +7,7 @@ Tests cover:
   - Getting a team by ID with property assertions
   - Updating team settings (funSettings)
   - Archiving and unarchiving a team
+  - Cloning a team (clone_and_wait)
   - Deleting a team
   - Team property assertions (messagingSettings, funSettings, guestSettings, isArchived)
 """
@@ -18,7 +19,9 @@ import uuid
 from typing import ClassVar, Optional
 
 from office365.runtime.client_request_exception import ClientRequestException
+from office365.teams.clonableteamparts import ClonableTeamParts
 from office365.teams.team import Team
+from office365.teams.visibility_type import TeamVisibilityType
 
 from tests.decorators import requires_delegated
 from tests.graph_case import GraphDelegatedTestCase
@@ -142,10 +145,39 @@ class TestGraphTeam(GraphDelegatedTestCase):
                 time.sleep(5)
 
     @requires_delegated(
+        "Team.Create",
+        "Group.ReadWrite.All",
+        "Directory.ReadWrite.All",
+        bypass_roles=["Global Administrator", "Teams Administrator"],
+    )
+    def test_08_clone_and_wait(self):
+        """Cloning a team returns a provisioned clone with its properties."""
+        team = TestGraphTeam.target_team
+        if not team:
+            self.skipTest("No team created from previous test")
+
+        name = "TeamClone_" + uuid.uuid4().hex
+        mail_nickname = "clone" + uuid.uuid4().hex
+        cloned = team.clone_and_wait(
+            mail_nickname=mail_nickname,
+            display_name=name,
+            parts_to_clone=ClonableTeamParts.settings,
+            visibility=TeamVisibilityType.private,
+        ).execute_query()
+        try:
+            assert cloned.id is not None and cloned.id != team.id
+            self.assertEqual(cloned.display_name, name)
+        finally:
+            try:
+                cloned.delete_object().execute_query_retry()
+            except Exception:
+                pass
+
+    @requires_delegated(
         "Group.ReadWrite.All",
         bypass_roles=["Global Administrator", "Teams Administrator"],
     )
-    def test_08_delete_team(self):
+    def test_09_delete_team(self):
         """Deleting a team should succeed."""
         team = TestGraphTeam.target_team
         if not team:

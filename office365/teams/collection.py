@@ -11,7 +11,7 @@ from office365.runtime.paths.builder import ODataPathBuilder
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.v4.entity import EntityPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
-from office365.teams.operations.async_operation import TeamsAsyncOperation
+from office365.teams.operations.async_operation import TeamsAsyncOperation, wait_for_operation
 from office365.teams.team import Team
 
 if TYPE_CHECKING:
@@ -98,8 +98,6 @@ class TeamCollection(EntityCollection[Team]):
             description (str or None): An optional description for the team. Maximum length: 1024 characters.
             template (str): The team template to create from (default ``"standard"``).
         """
-        from office365.teams.operations.async_status import TeamsAsyncOperationStatus
-
         return_type = Team(self.context)
         self.add_child(return_type)
 
@@ -113,19 +111,10 @@ class TeamCollection(EntityCollection[Team]):
             assert loc is not None
             operation = TeamsAsyncOperation(self.context, ODataPathBuilder.parse_url(loc))
 
-            def _on_failed(op) -> None:
-                raise RuntimeError(f"Team provisioning failed: {op.status}")
-
             def _on_succeeded(_op) -> None:
                 return_type.get()  # queue a full GET to load the team's properties
 
-            operation.poll_for_status(
-                TeamsAsyncOperationStatus.succeeded,
-                timeout_sec=180,
-                polling_interval=15,
-                success_callback=_on_succeeded,
-                failure_callback=_on_failed,
-            )
+            wait_for_operation(operation, success_callback=_on_succeeded)
 
         payload = {
             "displayName": display_name,

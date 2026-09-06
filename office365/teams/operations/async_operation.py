@@ -16,6 +16,38 @@ from office365.teams.operations.type import TeamsAsyncOperationType
 _NOT_FOUND_STATUS = 404
 
 
+def wait_for_operation(
+    operation: "TeamsAsyncOperation",
+    *,
+    success_callback: Callable[["TeamsAsyncOperation"], None] | None = None,
+    timeout_sec: int = 180,
+    interval: int = 15,
+) -> None:
+    """Schedule polling of an async operation until ``succeeded`` (deferred).
+
+    Queues the operation status GETs via ``after_execute``; the caller's
+    ``execute_query()`` drives them. Raises when the operation fails or times
+    out.
+
+    Args:
+        operation: The async operation to poll.
+        success_callback: Called with the populated operation once succeeded.
+        timeout_sec: Maximum seconds to wait.
+        interval: Seconds between status polls.
+    """
+
+    def _on_failed(op) -> None:
+        raise RuntimeError(f"Async operation failed: {op.status}")
+
+    operation.poll_for_status(
+        TeamsAsyncOperationStatus.succeeded,
+        timeout_sec=timeout_sec,
+        polling_interval=interval,
+        success_callback=success_callback,
+        failure_callback=_on_failed,
+    )
+
+
 class TeamsAsyncOperation(Entity):
     """
     A Microsoft Teams async operation is an operation that transcends the lifetime of a single API request.
