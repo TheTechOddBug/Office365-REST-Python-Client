@@ -2107,14 +2107,12 @@
             <Property Name="Id" Type="Edm.Guid" Nullable="false"/>
             <Property Name="SensitivityLabelId" Type="Edm.String"/>
             <Property Name="SensitivityLabel" Type="Edm.Guid" Nullable="false"/>
-            <Property Name="IsExternalWorkspace" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsHubSite" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsPersonalSiteOverLicenseQuota" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsPersonalSiteStorageLimitSetOnPaygTenant" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsRestrictContentOrgWideSearchPolicyEnforcedOnSite" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsRestrictedAccessControlPolicyEnforcedOnSite" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsRestrictedContentDiscoveryforCopilotAndAgentsEnabled" Type="Edm.Boolean" Nullable="false"/>
-            <Property Name="IsRubySite" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsScheduledForRemoval" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="IsUnlicensedOdb" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="LockIssue" Type="Edm.String"/>
@@ -5305,7 +5303,7 @@
             <EntitySet Name="Sitelinkingmanagers" EntityType="Microsoft.SharePoint.Portal.SiteLinkingManager"/>
             <EntitySet Name="SiteManagers" EntityType="Microsoft.SharePoint.SiteManager.SiteManagerService"/>
             <EntitySet Name="Smartwikilibrarys" EntityType="Microsoft.SharePoint.SmartWikiLibrary.SmartWikiLibraryUtility"/>
-            <EntitySet Name="SP.recents" EntityType="SP.EdgeworthSettingsApis"/>
+            <EntitySet Name="SP.deleteSettings" EntityType="SP.EdgeworthSettingsApis"/>
             <EntitySet Name="SP.SPOAuthFileDetonationRequests" EntityType="SP.SPOAuthFileDetonationRequest"/>
             <EntitySet Name="Sphomeservices" EntityType="Microsoft.SharePoint.Portal.SharePointHomeServiceContextBuilder"/>
             <EntitySet Name="SPHSites" EntityType="SP.SPHSite"/>
@@ -5485,7 +5483,6 @@
             <EntitySet Name="FileStatuss" EntityType="Microsoft.SharePoint.FilePublish.Model.FileStatus"/>
             <EntitySet Name="RemovedStatuss" EntityType="Microsoft.SharePoint.FilePublish.Model.RemovedStatus"/>
             <EntitySet Name="SPFlights" EntityType="Microsoft.SharePoint.Flighting.Runtime.SPFlight"/>
-            <EntitySet Name="SPSyntexRubyAPIControllers" EntityType="Microsoft.SharePoint.IdentityModel.SPSyntexRubyAPIController"/>
             <EntitySet Name="SPTenantIBInsightsReportMetadatas" EntityType="Microsoft.SharePoint.Insights.SPTenantIBInsightsReportMetadata"/>
             <EntitySet Name="SPTenantIBInsightsReportManagers" EntityType="Microsoft.SharePoint.Insights.SPTenantIBInsightsReportManager"/>
             <EntitySet Name="ActivityLoggers" EntityType="Microsoft.SharePoint.Internal.ActivityLogger"/>
@@ -5970,9 +5967,10 @@
             <FunctionImport Name="sitelinkingmanager" ReturnType="Microsoft.SharePoint.Portal.SiteLinkingManager" IsComposable="true" EntitySet="Sitelinkingmanagers"/>
             <FunctionImport Name="SiteManager" ReturnType="Microsoft.SharePoint.SiteManager.SiteManagerService" IsComposable="true" EntitySet="SiteManagers"/>
             <FunctionImport Name="smartwikilibrary" ReturnType="Microsoft.SharePoint.SmartWikiLibrary.SmartWikiLibraryUtility" IsComposable="true" EntitySet="Smartwikilibrarys"/>
-            <FunctionImport Name="SP.recents" ReturnType="SP.EdgeworthSettingsApis" IsComposable="true" EntitySet="SP.recents"/>
+            <FunctionImport Name="SP.deleteSetting" ReturnType="SP.EdgeworthSettingsApis" IsComposable="true" EntitySet="SP.deleteSettings"/>
+            <FunctionImport Name="SP.recents" ReturnType="SP.EdgeworthSettingsApis" IsComposable="true" EntitySet="SP.deleteSettings"/>
             <FunctionImport Name="SP.SPOAuthFileDetonationRequest" ReturnType="SP.SPOAuthFileDetonationRequest" IsComposable="true" EntitySet="SP.SPOAuthFileDetonationRequests"/>
-            <FunctionImport Name="SP.upsertSettings" ReturnType="SP.EdgeworthSettingsApis" IsComposable="true" EntitySet="SP.recents"/>
+            <FunctionImport Name="SP.upsertSettings" ReturnType="SP.EdgeworthSettingsApis" IsComposable="true" EntitySet="SP.deleteSettings"/>
             <FunctionImport Name="sphomeservice" ReturnType="Microsoft.SharePoint.Portal.SharePointHomeServiceContextBuilder" IsComposable="true" EntitySet="Sphomeservices"/>
             <FunctionImport Name="SPHSite" ReturnType="SP.SPHSite" IsComposable="true" EntitySet="SPHSites"/>
             <FunctionImport Name="SPOInternalUseOnly.FileVirusStatusUpdate" ReturnType="SP.FileUrlVirusStatusUpdate" IsComposable="true" EntitySet="SPOInternalUseOnly.FileVirusStatusUpdates"/>
@@ -11293,6 +11291,14 @@
                <Parameter Name="this" Type="Microsoft.SharePoint.Administration.SiteMove.Service.SiteMoveService"/>
                <Parameter Name="leaseDurationInMinute" Type="Edm.Int32" Nullable="false"/>
             </FunctionImport>
+            <FunctionImport Name="GetAllDocsIncrementalRows" ReturnType="Edm.String" IsBindable="true">
+               <Parameter Name="this" Type="Microsoft.SharePoint.Administration.SiteMove.Service.SiteMoveService"/>
+               <Parameter Name="serializedDocumentIds" Type="Edm.String"/>
+            </FunctionImport>
+            <FunctionImport Name="GetAllDocsIncrementalRowsStream" ReturnType="Edm.Stream" IsBindable="true">
+               <Parameter Name="this" Type="Microsoft.SharePoint.Administration.SiteMove.Service.SiteMoveService"/>
+               <Parameter Name="serializedDocumentIds" Type="Edm.String"/>
+            </FunctionImport>
             <FunctionImport Name="GetAllSitesDeletedAndBitFlags" ReturnType="Edm.String" IsBindable="true">
                <Parameter Name="this" Type="Microsoft.SharePoint.Administration.SiteMove.Service.SiteMoveService"/>
             </FunctionImport>
@@ -12325,6 +12331,15 @@
                <Parameter Name="targetWebUrl" Type="Edm.String"/>
                <Parameter Name="targetListId" Type="Edm.String"/>
                <Parameter Name="useFastUnorderedMode" Type="Edm.Boolean" Nullable="false"/>
+               <Parameter Name="parentUniqueId" Type="Edm.String"/>
+               <Parameter Name="strictAssetCopy" Type="Edm.Boolean" Nullable="false"/>
+            </FunctionImport>
+            <FunctionImport Name="BatchConvertClassicWikiPagesV2" ReturnType="Microsoft.SharePoint.SmartWikiLibrary.BatchConvertResult" IsBindable="true">
+               <Parameter Name="this" Type="Microsoft.SharePoint.SmartWikiLibrary.SmartWikiLibraryUtility"/>
+               <Parameter Name="sourceListId" Type="Edm.String"/>
+               <Parameter Name="pages" Type="Collection(Microsoft.SharePoint.SmartWikiLibrary.BatchConvertClassicWikiPageInput)"/>
+               <Parameter Name="targetWebUrl" Type="Edm.String"/>
+               <Parameter Name="targetListId" Type="Edm.String"/>
                <Parameter Name="parentUniqueId" Type="Edm.String"/>
             </FunctionImport>
             <FunctionImport Name="EnsureSmartWikiLibraryFeature" IsBindable="true">
@@ -14837,6 +14852,11 @@
                <Parameter Name="viewFields" Type="Edm.String"/>
                <Parameter Name="rowLimit" Type="Edm.Int64" Nullable="false"/>
             </FunctionImport>
+            <FunctionImport Name="ConvertHtmlToEmailSafeHtml" ReturnType="Edm.String" IsBindable="true">
+               <Parameter Name="this" Type="SP.Web"/>
+               <Parameter Name="htmlBody" Type="Edm.String"/>
+               <Parameter Name="removeEmbeddedImages" Type="Edm.Boolean" Nullable="false"/>
+            </FunctionImport>
             <FunctionImport Name="SP_Web_CreateAnonymousLink" ReturnType="Edm.String">
                <Parameter Name="url" Type="Edm.String"/>
                <Parameter Name="isEditLink" Type="Edm.Boolean" Nullable="false"/>
@@ -15675,11 +15695,6 @@
             <FunctionImport Name="SP_SharedWithMeItemCollection_GetSharedWithMeExternalItems" ReturnType="Edm.String" IsSideEffecting="false">
                <Parameter Name="top" Type="Edm.Int32" Nullable="false"/>
                <Parameter Name="hidden" Type="Edm.Boolean" Nullable="false"/>
-            </FunctionImport>
-            <FunctionImport Name="SP_SharedWithMeItemCollection_GetSharedWithMeItems" ReturnType="Edm.String" IsSideEffecting="false">
-               <Parameter Name="top" Type="Edm.Int32" Nullable="false"/>
-               <Parameter Name="skiptoken" Type="Edm.String"/>
-               <Parameter Name="includeSharingHistory" Type="Edm.Boolean" Nullable="false"/>
             </FunctionImport>
             <FunctionImport Name="SP_SharedWithMeItemCollection_RemoveFromSharedWithMe" ReturnType="Edm.String">
                <Parameter Name="spoIds" Type="Edm.String"/>
@@ -20045,6 +20060,9 @@
                <Parameter Name="this" Type="Microsoft.Online.SharePoint.TenantAdministration.Tenant"/>
                <Parameter Name="hubSiteId" Type="Edm.Guid" Nullable="false"/>
                <Parameter Name="principals" Type="Collection(Edm.String)"/>
+            </FunctionImport>
+            <FunctionImport Name="RunAdminHomePostLoadTasks" IsBindable="true">
+               <Parameter Name="this" Type="Microsoft.Online.SharePoint.TenantAdministration.Tenant"/>
             </FunctionImport>
             <FunctionImport Name="SaveFileRequestBrandingAssetConfig" IsBindable="true">
                <Parameter Name="this" Type="Microsoft.Online.SharePoint.TenantAdministration.Tenant"/>
@@ -25605,42 +25623,6 @@
          <Annotations Target="Microsoft.SharePoint.Internal.TextContentPart">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPDefaultDocumentLibrary">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPDefaultDocumentLibrary/lastModifiedBy">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPDefaultDocumentLibrary/lastModifiedDateTime">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/channelGroupId">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/createdDateTime">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/defaultDocumentLibrary">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/description">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/id">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/lastModifiedDateTime">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/name">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPRubySite/webUrl">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
          <Annotations Target="SP.AppSettingsInTeams">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
@@ -26772,10 +26754,34 @@
          <Annotations Target="SP.Sharing.MainLinkAudienceAbilities">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceRoleAbilities">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceRoleAbilities/commentRoleAvailable">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceRoleAbilities/editRoleAvailable">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceRoleAbilities/restrictedViewRoleAvailable">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceRoleAbilities/viewRoleAvailable">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceAbilities/anyone">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
          <Annotations Target="SP.Sharing.MainLinkAudienceAbilities/anyoneLinkAvailable">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceAbilities/onlyPeopleAdded">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
          <Annotations Target="SP.Sharing.MainLinkAudienceAbilities/onlyPeopleAddedLinkAvailable">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="SP.Sharing.MainLinkAudienceAbilities/organization">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="SP.Sharing.MainLinkAudienceAbilities/organizationLinkAvailable">
@@ -28702,13 +28708,7 @@
          <Annotations Target="SP.Site/SensitivityLabel">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
-         <Annotations Target="SP.Site/IsExternalWorkspace">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
          <Annotations Target="SP.Site/IsHubSite">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="SP.Site/IsRubySite">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="SP.Site/ResourcePath">
@@ -29333,9 +29333,6 @@
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="Microsoft.SharePoint.Internal.ClientSideComponent.Token">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="Microsoft.SharePoint.IdentityModel.SPSyntexRubyAPIController">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="SP.AppConfiguration">
@@ -32098,10 +32095,16 @@
          <Annotations Target="Microsoft.SharePoint.SmartWikiLibrary.BatchConvertItemResult">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
+         <Annotations Target="Microsoft.SharePoint.SmartWikiLibrary.BatchConvertAssetResult">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
          <Annotations Target="Microsoft.SharePoint.SmartWikiLibrary.ConversionLossReport">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="Microsoft.SharePoint.SmartWikiLibrary.ConversionLossItem">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
+         <Annotations Target="Microsoft.SharePoint.SmartWikiLibrary.BatchConvertClassicWikiPageInput">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="SP.ApiData/Microsoft_SharePoint_SectionDesignIdeas_SectionDesignIdeasApi()">
@@ -32794,6 +32797,9 @@
          <Annotations Target="SP.ApiData/ContentByQueryReplay(SP.Web, Edm.String, Edm.String, Edm.String, Edm.String, Edm.Int64)">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
+         <Annotations Target="SP.ApiData/ConvertHtmlToEmailSafeHtml(SP.Web, Edm.String, Edm.Boolean)">
+            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
+         </Annotations>
          <Annotations Target="SP.ApiData/CreateGroupBasedEnvironment(SP.Web)">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
@@ -33152,9 +33158,6 @@
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="SP.ApiData/SP_SharedWithMeItemCollection_GetSharedWithMeExternalItems(Edm.Int32, Edm.Boolean)">
-            <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
-         </Annotations>
-         <Annotations Target="SP.ApiData/SP_SharedWithMeItemCollection_GetSharedWithMeItems(Edm.Int32, Edm.String, Edm.Boolean)">
             <ValueAnnotation Term="Com.Microsoft.VisualStudio.CodeGen.IsBeta" Bool="true"/>
          </Annotations>
          <Annotations Target="SP.ApiData/SP_SharedWithMeItemCollection_RemoveFromSharedWithMe(Edm.String, Collection(Edm.String), Collection(Edm.String))">
@@ -41720,28 +41723,6 @@
             <End Type="SP.Web" Role="ActivityLoggerPartner" Multiplicity="0..1"/>
          </Association>
       </Schema>
-      <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Microsoft.SharePoint.IdentityModel">
-         <ComplexType Name="SPDefaultDocumentLibrary">
-            <Property Name="lastModifiedBy" Type="Edm.String"/>
-            <Property Name="lastModifiedDateTime" Type="Edm.DateTime" Nullable="false"/>
-         </ComplexType>
-         <ComplexType Name="SPRubySite">
-            <Property Name="channelGroupId" Type="Edm.Guid" Nullable="false"/>
-            <Property Name="createdDateTime" Type="Edm.DateTime" Nullable="false"/>
-            <Property Name="defaultDocumentLibrary" Type="Microsoft.SharePoint.IdentityModel.SPDefaultDocumentLibrary"/>
-            <Property Name="description" Type="Edm.String"/>
-            <Property Name="id" Type="Edm.Guid" Nullable="false"/>
-            <Property Name="lastModifiedDateTime" Type="Edm.DateTime" Nullable="false"/>
-            <Property Name="name" Type="Edm.String"/>
-            <Property Name="webUrl" Type="Edm.String"/>
-         </ComplexType>
-         <EntityType Name="SPSyntexRubyAPIController" Abstract="true">
-            <Key>
-               <PropertyRef Name="Id4a81de82eeb94d6080ea5bf63e27023a"/>
-            </Key>
-            <Property Name="Id4a81de82eeb94d6080ea5bf63e27023a" Type="Edm.String" Nullable="false"/>
-         </EntityType>
-      </Schema>
       <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Microsoft.SharePoint.ESign.Models.Requests">
          <ComplexType Name="AddAuditTrailEntryModel">
             <Property Name="action" Type="Edm.String"/>
@@ -43076,7 +43057,9 @@
             <Property Name="categoryDisplayName" Type="Edm.String"/>
             <Property Name="categoryName" Type="Edm.String"/>
             <Property Name="categoryType" Type="Edm.String"/>
+            <Property Name="groupCount" Type="Edm.Int32" Nullable="false"/>
             <Property Name="groups" Type="Collection(Microsoft.SharePoint.Administration.TenantAdmin.CatalogManagement.CatalogManagementGroup)"/>
+            <Property Name="siteCount" Type="Edm.Int32" Nullable="false"/>
          </ComplexType>
          <ComplexType Name="CatalogManagementGroup">
             <Property Name="groupDisplayName" Type="Edm.String"/>
@@ -43101,6 +43084,7 @@
          </ComplexType>
          <ComplexType Name="CatalogManagementSchema">
             <Property Name="categories" Type="Collection(Microsoft.SharePoint.Administration.TenantAdmin.CatalogManagement.CatalogManagementCategory)"/>
+            <Property Name="categoryCount" Type="Edm.Int32" Nullable="false"/>
          </ComplexType>
          <ComplexType Name="CatalogManagementSettings">
             <Property Name="departmentDisplayName" Type="Edm.String"/>
@@ -43417,6 +43401,7 @@
             <Property Name="canAddExternalPrincipal" Type="SP.Sharing.SharingAbilityStatus"/>
             <Property Name="canAddInternalPrincipal" Type="SP.Sharing.SharingAbilityStatus"/>
             <Property Name="canAddNewExternalPrincipal" Type="SP.Sharing.SharingAbilityStatus"/>
+            <Property Name="canAdjudicateAccessRequest" Type="SP.Sharing.SharingAbilityStatus"/>
             <Property Name="canRequestGrantAccess" Type="SP.Sharing.SharingAbilityStatus"/>
             <Property Name="canRequestGrantAccessForExistingExternalPrincipal" Type="SP.Sharing.SharingAbilityStatus"/>
             <Property Name="canRequestGrantAccessForInternalPrincipal" Type="SP.Sharing.SharingAbilityStatus"/>
@@ -43544,9 +43529,18 @@
             <Property Name="maxExpirationInDays" Type="Edm.Int32" Nullable="false"/>
          </ComplexType>
          <ComplexType Name="MainLinkAudienceAbilities">
+            <Property Name="anyone" Type="SP.Sharing.MainLinkAudienceRoleAbilities"/>
             <Property Name="anyoneLinkAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
+            <Property Name="onlyPeopleAdded" Type="SP.Sharing.SharingAbilityStatus"/>
             <Property Name="onlyPeopleAddedLinkAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
+            <Property Name="organization" Type="SP.Sharing.MainLinkAudienceRoleAbilities"/>
             <Property Name="organizationLinkAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
+         </ComplexType>
+         <ComplexType Name="MainLinkAudienceRoleAbilities">
+            <Property Name="commentRoleAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
+            <Property Name="editRoleAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
+            <Property Name="restrictedViewRoleAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
+            <Property Name="viewRoleAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
          </ComplexType>
          <ComplexType Name="MainLinkRoleAbilities">
             <Property Name="commentRoleAvailable" Type="SP.Sharing.SharingAbilityStatus"/>
@@ -46574,12 +46568,26 @@
             <Property Name="results" Type="Collection(Microsoft.SharePoint.SmartWikiLibrary.BatchConvertItemResult)"/>
          </ComplexType>
          <ComplexType Name="BatchConvertItemResult">
+            <Property Name="assets" Type="Collection(Microsoft.SharePoint.SmartWikiLibrary.BatchConvertAssetResult)"/>
             <Property Name="errorCode" Type="Edm.String"/>
             <Property Name="errorMessage" Type="Edm.String"/>
             <Property Name="lossy" Type="Microsoft.SharePoint.SmartWikiLibrary.ConversionLossReport"/>
+            <Property Name="rollbackTargetBranchServerRelativeUrl" Type="Edm.String"/>
+            <Property Name="rollbackTargetListId" Type="Edm.Guid" Nullable="false"/>
+            <Property Name="rollbackTargetPageItemId" Type="Edm.Int32" Nullable="false"/>
+            <Property Name="rollbackTargetPageServerRelativeUrl" Type="Edm.String"/>
+            <Property Name="rollbackTargetPageUniqueId" Type="Edm.Guid" Nullable="false"/>
             <Property Name="sourceItemId" Type="Edm.Int32" Nullable="false"/>
             <Property Name="succeeded" Type="Edm.Boolean" Nullable="false"/>
             <Property Name="viewerUrl" Type="Edm.String"/>
+         </ComplexType>
+         <ComplexType Name="BatchConvertAssetResult">
+            <Property Name="destinationUrl" Type="Edm.String"/>
+            <Property Name="errorCode" Type="Edm.String"/>
+            <Property Name="errorMessage" Type="Edm.String"/>
+            <Property Name="mediaType" Type="Edm.String"/>
+            <Property Name="sourceUrl" Type="Edm.String"/>
+            <Property Name="status" Type="Edm.String"/>
          </ComplexType>
          <ComplexType Name="ConversionLossReport">
             <Property Name="isClean" Type="Edm.Boolean" Nullable="false"/>
@@ -46589,6 +46597,10 @@
             <Property Name="count" Type="Edm.Int32" Nullable="false"/>
             <Property Name="detail" Type="Edm.String"/>
             <Property Name="kind" Type="Edm.String"/>
+         </ComplexType>
+         <ComplexType Name="BatchConvertClassicWikiPageInput">
+            <Property Name="order" Type="Edm.Double"/>
+            <Property Name="sourceItemId" Type="Edm.String"/>
          </ComplexType>
          <EntityType Name="SmartWikiLibraryUtility">
             <Key>

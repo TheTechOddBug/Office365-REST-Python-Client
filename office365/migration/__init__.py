@@ -34,6 +34,8 @@ from office365.migration.base import (
 from office365.migration.checkpoint import Checkpoint
 from office365.migration.job import MigrationJob
 from office365.migration.manifest import Manifest
+from office365.migration.outlook.assessor import MailboxAssessor
+from office365.migration.outlook.scanner import MailboxFolderScan, OutlookOptions
 from office365.migration.report import MigrationReport, build_report, export_reports
 from office365.migration.runner import MigrationRunner
 from office365.migration.server_job import MigrationServerJob
@@ -50,6 +52,9 @@ __all__ = [
     "ItemStatus",
     "SiteLockedScanner",
     "LargeSitesScanner",
+    "MailboxAssessor",
+    "MailboxFolderScan",
+    "OutlookOptions",
     "Manifest",
     "MigrationAssessor",
     "MigrationItem",
