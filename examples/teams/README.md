@@ -136,7 +136,7 @@ for team in client.teams.get_all().execute_query():
 Team lifecycle and settings management.
 
 ```python
-team = client.teams.create("Sales Team", "Tracking pipeline deals").execute_query_and_wait()
+team = client.teams.create_and_wait("Sales Team", "Tracking pipeline deals").execute_query()
 print(f"Created: {team.display_name} ({team.id})")
 
 team.archive().execute_query()        # archive

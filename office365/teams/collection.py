@@ -9,6 +9,7 @@ from office365.directory.groups.collection import GroupCollection
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.builder import ODataPathBuilder
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.paths.v4.entity import EntityPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.teams.operations.async_operation import TeamsAsyncOperation
 from office365.teams.team import Team
@@ -44,15 +45,61 @@ class TeamCollection(EntityCollection[Team]):
         )
         return self
 
-    def create(self, display_name: str, description: Optional[str] = None):
-        """Create a new team.
+    def create(
+        self,
+        display_name: str,
+        description: Optional[str] = None,
+        template: str = "standard",
+    ) -> TeamsAsyncOperation:
+        """Create a new team (async) — returns the ``teamsAsyncOperation``.
 
-        This is async operation.
+        The operation is submitted on ``execute_query()`` (HTTP 202). Poll the
+        returned operation (:meth:`TeamsAsyncOperation.poll_for_status`) to wait
+        for provisioning; ``target_resource_id`` then holds the team id. Use
+        :meth:`create_and_wait` for the convenience path that returns a ready
+        team.
 
         Args:
             display_name (str): The name of the team.
             description (str or None): An optional description for the team. Maximum length: 1024 characters.
+            template (str): The team template to create from (default ``"standard"``).
         """
+        return_type = TeamsAsyncOperation(self.context, EntityPath(None, self.resource_path))
+
+        def _process_response(resp: requests.Response) -> None:
+            loc = resp.headers.get("Location", None)
+            if loc is not None:
+                operation_path = ODataPathBuilder.parse_url(loc)
+                return_type._resource_path = operation_path
+
+        payload = {
+            "displayName": display_name,
+            "description": description,
+            "template@odata.bind": f"{self.context.teams_templates.resource_url}('{template}')",
+        }
+        qry = CreateEntityQuery(self, payload, return_type)
+        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        return return_type
+
+    def create_and_wait(
+        self,
+        display_name: str,
+        description: Optional[str] = None,
+        template: str = "standard",
+    ) -> Team:
+        """Create a team and wait for provisioning (deferred).
+
+        Chains the async creation, the ``teamsAsyncOperation`` poll, and a full
+        team ``GET`` through ``after_execute`` hooks — one ``execute_query()``
+        returns a provisioned :class:`Team` with its properties loaded.
+
+        Args:
+            display_name (str): The name of the team.
+            description (str or None): An optional description for the team. Maximum length: 1024 characters.
+            template (str): The team template to create from (default ``"standard"``).
+        """
+        from office365.teams.operations.async_status import TeamsAsyncOperationStatus
+
         return_type = Team(self.context)
         self.add_child(return_type)
 
@@ -64,15 +111,26 @@ class TeamCollection(EntityCollection[Team]):
 
             loc = resp.headers.get("Location", None)
             assert loc is not None
-            operation_path = ODataPathBuilder.parse_url(loc)
-            operation = TeamsAsyncOperation(self.context, operation_path)
-            return_type.operations.add_child(operation)
-            return_type._pending_operation = operation
+            operation = TeamsAsyncOperation(self.context, ODataPathBuilder.parse_url(loc))
+
+            def _on_failed(op) -> None:
+                raise RuntimeError(f"Team provisioning failed: {op.status}")
+
+            def _on_succeeded(_op) -> None:
+                return_type.get()  # queue a full GET to load the team's properties
+
+            operation.poll_for_status(
+                TeamsAsyncOperationStatus.succeeded,
+                timeout_sec=180,
+                polling_interval=15,
+                success_callback=_on_succeeded,
+                failure_callback=_on_failed,
+            )
 
         payload = {
             "displayName": display_name,
             "description": description,
-            "template@odata.bind": f"{self.context.teams_templates.resource_url}('standard')",
+            "template@odata.bind": f"{self.context.teams_templates.resource_url}('{template}')",
         }
         qry = CreateEntityQuery(self, payload, return_type)
         self.context.add_query(qry).after_execute(_process_response, include_response=True)

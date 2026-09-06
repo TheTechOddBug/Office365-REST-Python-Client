@@ -13,9 +13,11 @@ Tests cover:
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import ClassVar, Optional
 
+from office365.runtime.client_request_exception import ClientRequestException
 from office365.teams.team import Team
 
 from tests.decorators import requires_delegated
@@ -36,10 +38,10 @@ class TestGraphTeam(GraphDelegatedTestCase):
     def test_01_create_team(self):
         """Creating a team with a unique name should succeed."""
         name = "Team_" + uuid.uuid4().hex
-        result = self.client.teams.create(name).execute_query()
-        self.assertIsNotNone(result.id)
-        self.assertIsNotNone(result.display_name)
-        TestGraphTeam.target_team = result
+        result = self.client.teams.create_and_wait(name).execute_query()
+        assert result.id is not None
+        TestGraphTeam.target_team = result  # register for cleanup even if a later check fails
+        self.assertEqual(result.display_name, name)
 
     @requires_delegated(
         "Team.ReadBasic.All",
@@ -127,7 +129,17 @@ class TestGraphTeam(GraphDelegatedTestCase):
         if not team:
             self.skipTest("No team created from previous test")
 
-        team.unarchive().execute_query()
+        # Graph archive/unarchive is eventually consistent — transient 404s
+        # right after archiving are retried.
+        deadline = time.time() + 120
+        while True:
+            try:
+                team.unarchive().execute_query()
+                break
+            except ClientRequestException:
+                if time.time() >= deadline:
+                    raise
+                time.sleep(5)
 
     @requires_delegated(
         "Group.ReadWrite.All",

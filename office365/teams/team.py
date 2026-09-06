@@ -24,7 +24,6 @@ from office365.teams.members.conversation_collection import ConversationMemberCo
 from office365.teams.members.settings import TeamMemberSettings
 from office365.teams.messaging_settings import TeamMessagingSettings
 from office365.teams.operations.async_operation import TeamsAsyncOperation
-from office365.teams.operations.async_status import TeamsAsyncOperationStatus
 from office365.teams.schedule.schedule import Schedule
 from office365.teams.specialization import TeamSpecialization
 from office365.teams.summary import TeamSummary
@@ -41,24 +40,9 @@ class Team(Entity):
 
     def __init__(self, context, resource_path=None):
         super().__init__(context, resource_path)
-        self._pending_operation: TeamsAsyncOperation | None = None
 
     def __str__(self):
         return self.display_name or self.entity_type_name
-
-    def execute_query_and_wait(self) -> Self:
-        """
-        Submit request(s) to the server and waits until operation is completed
-        """
-
-        def _loaded():
-            if self._pending_operation is None:
-                raise RuntimeError("No pending async operation to wait for. Call clone() or create() first.")
-            self._pending_operation.poll_for_status(status_type=TeamsAsyncOperationStatus.succeeded)
-
-        self.ensure_property("id").after_execute(lambda _: _loaded())
-        self.execute_query()
-        return self
 
     def delete_object(self, permanent_delete=False):
         """Deletes a team"""
@@ -317,7 +301,6 @@ class Team(Entity):
                 operation_path = ODataPathBuilder.parse_url(loc)
                 operation = TeamsAsyncOperation(self.context, operation_path)
                 self.operations.add_child(operation)
-                self._pending_operation = operation
 
         self.context.add_query(qry).after_execute(_process_response, include_response=True)
         return self

@@ -5,13 +5,13 @@ from typing import Optional
 
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
-from office365.outlook.mail.item_body import ItemBody
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 from office365.teams.channels.iIdentity import ChannelIdentity
 from office365.teams.chats.event_message_detail import EventMessageDetail
 from office365.teams.chats.messages.attachment import ChatMessageAttachment
+from office365.teams.chats.messages.body import ChatMessageBody
 
 
 class ChatMessage(Entity):
@@ -26,12 +26,12 @@ class ChatMessage(Entity):
         return self.properties.get("attachments", ClientValueCollection(ChatMessageAttachment))
 
     @property
-    def body(self) -> ItemBody:
+    def body(self) -> ChatMessageBody:
         """
         Plaintext/HTML representation of the content of the chat message. Representation is specified by the
         contentType inside the body. The content is always in HTML if the chat message contains a chatMessageMention.
         """
-        return self.properties.get("body", ItemBody())
+        return self.properties.get("body", ChatMessageBody())
 
     @odata(name="channelIdentity")
     @property

@@ -25,7 +25,7 @@ class TestTeamMembers(GraphDelegatedTestCase):
     def setUpClass(cls):
         super().setUpClass()
         name = "Team_" + uuid.uuid4().hex
-        team = cls.client.teams.create(name).execute_query()
+        team = cls.client.teams.create_and_wait(name).execute_query()
         cls.target_team = team
 
     @classmethod

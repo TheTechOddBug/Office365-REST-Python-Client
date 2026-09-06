@@ -109,10 +109,7 @@ class TestTeamChats(GraphDelegatedTestCase):
         messages = chat.messages.top(5).get().execute_query()
         self.assertIsNotNone(messages)
 
-    @requires_delegated(
-        "Chat.ReadWrite",
-        bypass_roles=["Global Administrator", "Teams Administrator"],
-    )
+    @requires_delegated("Chat.ManageDeletion.All")
     def test_07_delete_chat(self):
         """Deleting a chat should succeed."""
         chat = TestTeamChats.target_chat

@@ -13,6 +13,8 @@ from office365.teams.operations.async_status import TeamsAsyncOperationStatus
 from office365.teams.operations.error import OperationError
 from office365.teams.operations.type import TeamsAsyncOperationType
 
+_NOT_FOUND_STATUS = 404
+
 
 class TeamsAsyncOperation(Entity):
     """
@@ -46,8 +48,27 @@ class TeamsAsyncOperation(Entity):
         """
         deadline = time.time() + timeout_sec
 
+        def _not_found(exc: Exception) -> bool:
+            # The operation's location can be briefly unavailable right after the
+            # 202 (e.g. "No workflow found with supplied ID") — treat it as a
+            # polling gap, not a permanent failure.
+            return getattr(getattr(exc, "response", None), "status_code", None) == _NOT_FOUND_STATUS
+
+        def _fail() -> None:
+            if callable(failure_callback):
+                failure_callback(self)
+
         def _poll():
-            self.get().after_execute(_verify_status, execute_first=True)
+            qry = self.get()
+
+            def _on_error(exc: Exception) -> None:
+                if _not_found(exc) and time.time() < deadline:
+                    time.sleep(polling_interval)
+                    _poll()
+                else:
+                    _fail()
+
+            qry.after_execute(_verify_status, execute_first=True).on_error(_on_error)
 
         def _verify_status(return_type: TeamsAsyncOperation):
             if return_type.status == status_type:
@@ -59,8 +80,7 @@ class TeamsAsyncOperation(Entity):
                     failure_callback(return_type)
                 return
             if time.time() >= deadline:
-                if callable(failure_callback):
-                    failure_callback(self)
+                _fail()
                 return
             time.sleep(polling_interval)
             _poll()

@@ -43,8 +43,7 @@ def _get_team(client: GraphClient, team_id: str) -> Team:
 
 
 def cmd_create(client: GraphClient, args: argparse.Namespace) -> None:
-    team = client.teams.create(args.name, args.description)
-    team.execute_query_and_wait()
+    team = client.teams.create_and_wait(args.name, args.description).execute_query()
     print(f"✓ Team created: {team.display_name} ({team.id})")
 
 
