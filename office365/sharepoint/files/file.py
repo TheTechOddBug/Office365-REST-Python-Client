@@ -13,6 +13,7 @@ from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.function import FunctionQuery
@@ -692,7 +693,14 @@ class File(AbstractFile):
         self.ensure_property("ServerRelativePath").after_execute(lambda _: _download_inner())
         return self
 
-    def download_session(self, file_object, chunk_downloaded=None, chunk_size=1024 * 1024, use_path=True):
+    def download_session(
+        self,
+        file_object,
+        chunk_downloaded=None,
+        chunk_size=1024 * 1024,
+        use_path=True,
+        progress=None,
+    ):
         """Download a file content. Use this method to download a content of a large size
 
         Args:
@@ -700,6 +708,9 @@ class File(AbstractFile):
             chunk_downloaded ((int)->None or None):
             chunk_size (int):
             use_path (bool): File addressing by path flag
+            progress (office365.runtime.operations.ProgressCallback): Optional hook
+              invoked per chunk with a ``Progress`` snapshot (``done`` = bytes
+              downloaded so far, ``total`` = content length when known).
         """
 
         def _download_as_stream():
@@ -714,11 +725,14 @@ class File(AbstractFile):
 
             def _process_response(response: requests.Response) -> None:
                 self.context.pending_request().beforeExecute -= _construct_request
+                total = int(response.headers.get("Content-Length", 0)) or None
                 bytes_read = 0
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     bytes_read += len(chunk)
                     if callable(chunk_downloaded):
                         chunk_downloaded(bytes_read)
+                    if callable(progress):
+                        progress(Progress(done=bytes_read, total=total, stage="downloading"))
                     file_object.write(chunk)
 
             self.context.add_query(qry).before_execute(_construct_request, once=False).after_execute(

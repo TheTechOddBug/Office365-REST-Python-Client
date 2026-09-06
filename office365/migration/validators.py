@@ -57,6 +57,8 @@ def verify(
 
     candidates = [i for i in manifest.items if i.dest_path in target_paths]
     for item in random.sample(candidates, min(spot_checks, len(candidates))):
+        if item.item_type == "folder":
+            continue  # folders are verified by presence only (no content)
         report.checked += 1
         if source.checksum(item) != target.checksum(item):
             report.mismatches.append(f"content mismatch: {item.dest_path}")

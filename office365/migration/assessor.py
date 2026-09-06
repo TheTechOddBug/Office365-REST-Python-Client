@@ -24,6 +24,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from office365.migration._util import emit_progress
+from office365.migration.adapters.sharepoint import is_taxonomy_validation
 from office365.migration.assessment.containers import ScanContainer
 from office365.migration.assessment.issue import AssessmentIssue
 from office365.migration.assessment.registry import active_scan_pairs
@@ -248,11 +249,28 @@ class MigrationAssessor(Entity):
             summary.admins = "; ".join(logins)
 
     def _flag_access(self, report: AssessmentReport, location: str, error: Exception) -> None:
-        """Record an access warning — an unreadable area is skipped, not fatal."""
+        """Record a warning for an area that could not be read (skipped, not fatal).
+
+        A Managed Metadata column pointing to a deleted term set fails the list
+        read with ``SPFieldValidationException`` — surface it as a dedicated
+        ``taxonomy`` issue so the report names the cause and the fix.
+        """
         if location.endswith("web/webs"):
             report.webs_skipped = True
         elif location.endswith("web/lists"):
             report.lists_skipped = True
+        if is_taxonomy_validation(error):
+            report.issues.append(
+                AssessmentIssue(
+                    "warning",
+                    "taxonomy",
+                    location,
+                    f"list read failed — a Managed Metadata column references a missing term set ({error})",
+                    "Fix the column or export the list without taxonomy fields (SharePointListSource "
+                    "auto-fallback excludes them)",
+                )
+            )
+            return
         report.issues.append(AssessmentIssue("warning", "access", location, f"skipped — {error}"))
 
     def _scan_web_lists(

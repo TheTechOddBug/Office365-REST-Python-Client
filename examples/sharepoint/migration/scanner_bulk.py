@@ -15,23 +15,8 @@ import os
 
 from office365.migration import MigrationAssessor
 from office365.migration.assessment.report import AssessmentReport, ScanReport
-from office365.runtime.operations import Progress
 from office365.sharepoint.client_context import ClientContext
 from tests.settings import client_id, password, tenant, username
-
-
-def progress_bar(description: str):
-    """tqdm-backed hook — the library only needs a ``Callable[[Progress], None]``."""
-    from tqdm import tqdm
-
-    bar = tqdm(desc=description)
-
-    def hook(p: Progress) -> None:
-        if p.total is not None and bar.total is None:
-            bar.total = p.total
-        bar.update(p.done - bar.n)
-
-    return hook
 
 
 def write_report(report, output_dir: str) -> str:
@@ -50,7 +35,6 @@ def write_report(report, output_dir: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Bulk-assess a list of sites")
     parser.add_argument("--sites-file", required=True, help="file with one site URL per line")
-    parser.add_argument("--no-progress", action="store_true", help="do not show tqdm progress bars")
     parser.add_argument("--output", default="/tmp", help="directory for the combined AssessmentReport.json report")
     args = parser.parse_args()
 
@@ -59,8 +43,8 @@ def main():
 
     for url in urls:
         ctx = ClientContext(url).with_username_and_password(tenant, client_id, username, password)
-        hook = None if args.no_progress else progress_bar(f"Assessing {url}")
-        report = MigrationAssessor(ctx.web).assess(progress=hook).execute_query().value
+        print(f"Assessing {url}…", flush=True)
+        report = MigrationAssessor(ctx.web).assess().execute_query().value
         print(report.summary())
 
         combined.total_webs += report.total_webs

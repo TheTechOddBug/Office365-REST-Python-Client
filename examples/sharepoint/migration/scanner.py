@@ -3,15 +3,14 @@ Pre-migration assessment — surface blockers and warnings before moving data.
 
 Basic usage of the modular ``MigrationAssessor``: scan the site, then print a
 summary plus the flagged issues (blockers block a migration, warnings are
-advisory) and the SMAT-style scan detail reports. A determinate progress bar
-tracks the per-list scan.
+advisory) and the SMAT-style scan detail reports.
 
 Scans are registered in ``office365.migration.assessment.registry`` (mirroring
 SMAT's ScanDef.json); ``--disable-scan`` turns one off (its data is not
 collected), ``--only-scan`` runs just one.
 
 The assessment is the "scan" phase of the migration workflow — pair it with
-``MigrationJob`` (see ``migrate_files.py`` / ``export_list_to_json.py``) to
+``MigrationJob`` (see ``migrate_files.py`` / ``export_list.py``) to
 assess, then migrate, then verify.
 
 https://learn.microsoft.com/en-us/sharepoint/dev/apis/migration-api-reference
@@ -22,23 +21,8 @@ import json
 import os
 
 from office365.migration import SCANS, MigrationAssessor
-from office365.runtime.operations import Progress
 from office365.sharepoint.client_context import ClientContext
 from tests.settings import client_id, password, team_site_url, tenant, username
-
-
-def progress_bar(description: str):
-    """tqdm-backed hook — the library only needs a ``Callable[[Progress], None]``."""
-    from tqdm import tqdm
-
-    bar = tqdm(desc=description)
-
-    def hook(p: Progress) -> None:
-        if p.total is not None and bar.total is None:
-            bar.total = p.total
-        bar.update(p.done - bar.n)
-
-    return hook
 
 
 def write_report(report, output_dir: str) -> str:
@@ -68,7 +52,6 @@ def main():
     parser.add_argument("--permissions", action="store_true", help="scan for unique permissions (slower)")
     parser.add_argument("--site-admins", action="store_true", help="include site collection admins in LargeSites")
     parser.add_argument("--no-recursive", action="store_true", help="scan only the root web, not subsites")
-    parser.add_argument("--no-progress", action="store_true", help="do not show a tqdm progress bar")
     parser.add_argument("--disable-scan", action="append", help="disable a scan (e.g. LargeSites)")
     parser.add_argument("--only-scan", help="run only this scan (e.g. LargeSites)")
     parser.add_argument("--output", default="/tmp", help="directory for the AssessmentReport.json report")
@@ -89,8 +72,8 @@ def main():
             if definition.name != args.only_scan:
                 assessor.disable_scan(definition.name)
 
-    hook = None if args.no_progress else progress_bar("Assessing")
-    report = assessor.assess(progress=hook, recursive=not args.no_recursive).execute_query().value
+    print("Assessing…", flush=True)
+    report = assessor.assess(recursive=not args.no_recursive).execute_query().value
     print(report.summary())
     print("Report:", write_report(report, args.output))
 

@@ -66,7 +66,8 @@ class MigrationItem:
     size_bytes: int = 0
     item_type: str = "file"
     status: ItemStatus = ItemStatus.PENDING
-    error: str | None = None
+    error: str | None = None  # failure message (SPMT "Message")
+    error_code: str | None = None  # failure category/code (e.g. exception type name)
     modified: str | None = None  # source last-modified (ISO-8601), for incremental
 
 

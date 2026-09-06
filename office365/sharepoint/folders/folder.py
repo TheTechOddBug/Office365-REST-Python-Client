@@ -388,7 +388,13 @@ class Folder(Entity):
         self.context.add_query(qry)
         return self
 
-    def upload_file(self, relative_path: str, content: Union[str, bytes], chunk_size: int = _DEFAULT_CHUNK_SIZE) -> File:
+    def upload_file(
+        self,
+        relative_path: str,
+        content: Union[str, bytes],
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+        progress: Optional[ProgressCallback] = None,
+    ) -> File:
         """Upload content to a path relative to this folder, creating folders as needed.
 
         A plain ``file_name`` (no slashes) uploads directly into this folder;
@@ -402,6 +408,8 @@ class Folder(Entity):
               e.g. ``"report.pdf"`` or ``"Projects/2026/report.pdf"``.
             content (str or bytes): Specifies the binary content of the file to be added.
             chunk_size (int): Upload-session chunk size / size threshold (bytes).
+            progress: Optional hook invoked with a ``Progress`` snapshot
+              (``done``/``total`` in bytes) while the file uploads.
         """
         if isinstance(content, str):
             content = content.encode("utf-8")
@@ -409,7 +417,7 @@ class Folder(Entity):
         folder = self
         if len(parts) > 1:
             folder = self.ensure_folder("/".join(parts[:-1]))
-        return folder.files.upload_content(content, parts[-1], chunk_size)
+        return folder.files.upload_content(content, parts[-1], chunk_size, progress)
 
     def update_document_sharing_info(
         self,

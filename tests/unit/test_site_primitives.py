@@ -120,7 +120,7 @@ class TestSitePrimitives(unittest.TestCase):
         calls = []
 
         class _FakeFiles:
-            def upload_content(self, content, file_name, chunk_size=4 * 1024 * 1024):
+            def upload_content(self, content, file_name, chunk_size=4 * 1024 * 1024, progress=None):
                 calls.append(("upload_content", file_name))
                 return "file"
 

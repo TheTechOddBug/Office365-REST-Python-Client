@@ -53,3 +53,13 @@ def iso(value) -> str:
     if value is None:
         return ""
     return value.isoformat(timespec="seconds")
+
+
+def record_to_json(payload: object) -> str:
+    """Serialize a record to the canonical JSON text used when persisting it.
+
+    SharePoint property values are often entity/datetime objects, so a str
+    fallback keeps the payload JSON-safe. Source/target checksums both use this
+    form, so content verification compares identical text.
+    """
+    return json.dumps(payload, indent=2, default=str)

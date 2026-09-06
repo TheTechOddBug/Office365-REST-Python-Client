@@ -13,6 +13,8 @@ Requires: write access to the target library.
 """
 
 import argparse
+import os
+import tempfile
 
 from office365.migration import MigrationOptions, MigrationSession
 from office365.migration.adapters.filesystem import FileSystemSource
@@ -26,6 +28,7 @@ def main():
     parser.add_argument("--source", required=True, help="local directory to migrate")
     parser.add_argument("--library-url", required=True, help="server-relative library URL")
     parser.add_argument("--concurrency", type=int, default=4, help="parallel upload workers")
+    parser.add_argument("--checkpoint", default=None, help="checkpoint JSON path (enables resume)")
     args = parser.parse_args()
 
     ctx = ClientContext(team_site_url).with_username_and_password(
@@ -33,16 +36,18 @@ def main():
     )
     folder = ctx.web.get_folder_by_server_relative_path(args.library_url)
     options = MigrationOptions(concurrency=args.concurrency)
+    checkpoint = args.checkpoint or os.path.join(tempfile.gettempdir(), "migration-session-checkpoint.json")
 
     session = MigrationSession()
     job = session.add_task(
         FileSystemSource(args.source),
         SharePointLibraryTarget(folder, concurrency=args.concurrency),
         options=options,
-        checkpoint_path="session-checkpoint.json",
+        checkpoint_path=checkpoint,
     )
     print(f"Task: {job.source_label} -> {job.target_label}")
 
+    print("Migrating…", flush=True)
     session.start()
     for status in session.status():
         stats = status["stats"]

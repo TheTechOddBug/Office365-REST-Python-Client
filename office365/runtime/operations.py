@@ -8,6 +8,7 @@ library's deferred execution model: hooks fire during ``execute_query()``.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from itertools import count
 from typing import Any, Callable, Generic, Optional, Sequence, TypeVar
@@ -46,6 +47,69 @@ class Progress(Generic[T_co]):
 
 
 ProgressCallback = Callable[[Progress[Any]], None]
+
+
+class ProgressTracker:
+    """Shared emitter that turns operation sub-steps into ``Progress`` snapshots.
+
+    Operations that complete in sub-steps (pages, chunks, files, batches) advance
+    a tracker from their ``after_execute`` hooks; it centralizes counting and
+    builds a consistent ``Progress`` payload. Thread-safe, so it can be shared
+    between worker threads (e.g. ``run_parallel``) and a reporting thread.
+
+    Args:
+        progress: Optional ``ProgressCallback`` to invoke per report.
+        total: Total work when known upfront (may be set later via ``set_total``).
+        stage: The operation stage reported on every snapshot.
+
+    Example:
+        >>> tracker = ProgressTracker(callback, total=100, stage="uploading")
+        >>> def _chunk_done(return_type):  # registered via after_execute
+        ...     tracker.advance(len(return_type.value))
+    """
+
+    def __init__(
+        self,
+        progress: ProgressCallback | None = None,
+        *,
+        total: Optional[int] = None,
+        stage: str = "",
+    ) -> None:
+        self._callback = progress
+        self._total = total
+        self._stage = stage
+        self._done = 0
+        self._lock = threading.Lock()
+
+    @property
+    def done(self) -> int:
+        return self._done
+
+    @property
+    def total(self) -> Optional[int]:
+        return self._total
+
+    def set_total(self, total: Optional[int]) -> None:
+        """Set (or update) the total; lets late determinate totals be reported."""
+        self._total = total
+
+    def report(self, done: int, items=None) -> None:
+        """Report an absolute ``done`` count."""
+        with self._lock:
+            self._done = max(self._done, done)
+            done_value = self._done
+        self._emit(done_value, items)
+
+    def advance(self, amount: int = 1, items=None) -> None:
+        """Advance ``done`` by ``amount`` and report it."""
+        with self._lock:
+            self._done += amount
+            done_value = self._done
+        self._emit(done_value, items)
+
+    def _emit(self, done: int, items) -> None:
+        if callable(self._callback):
+            self._callback(Progress(done=done, total=self._total, stage=self._stage, items=items))
 
 
 def query_progress_hook(total: int, progress: ProgressCallback, stage: str = "") -> Callable[[Any], None]:

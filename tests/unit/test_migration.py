@@ -269,3 +269,133 @@ def test_json_records_round_trip(tmp_path):
     assert (out / "a.json").exists()
     assert jsonlib.loads((out / "a.json").read_text()) == {"name": "Alice"}
     assert job.verify().ok
+
+
+def test_report_summary_is_enriched(tmp_path):
+    import json as jsonlib
+
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _seed_tree(src)
+    job = MigrationJob(FileSystemSource(src), FileSystemTarget(dst))
+    job.plan()
+    job.run()
+
+    out = tmp_path / "reports"
+    job.export_reports(out)
+    summary = jsonlib.loads((out / "SummaryReport.json").read_text())[0]
+
+    assert summary["total_bytes"] > 0
+    assert summary["total_gb"] == round(summary["total_bytes"] / (1024**3), 2)
+    assert summary["migrated_gb"] == summary["total_gb"]
+    assert summary["not_migrated_gb"] == 0
+    assert summary["items_not_migrated"] == 0
+    assert summary["warnings"] == 0
+    assert summary["run_id"]
+    assert summary["gb_per_hour"] is not None
+
+    item = jsonlib.loads((out / "ItemReport.json").read_text())[0]
+    assert item["extension"]
+    assert item["file_name"]
+    assert item["error_code"] == ""
+
+
+def test_report_failure_carries_error_code(tmp_path):
+    import json as jsonlib
+
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _seed_tree(src)
+    job = MigrationJob(_FlakySource(src, "docs/sub/b.txt"), FileSystemTarget(dst))
+    job.plan()
+    job.run()
+
+    out = tmp_path / "reports"
+    job.export_reports(out)
+    failures = jsonlib.loads((out / "FailureReport.json").read_text())
+    assert failures[0]["error_code"] == "RuntimeError"
+    assert "transient read error" in failures[0]["error"]
+
+    summary = jsonlib.loads((out / "SummaryReport.json").read_text())[0]
+    assert summary["errors"] == 1
+    assert summary["items_not_migrated"] == 1
+
+
+def test_progress_reaches_total_when_items_are_skipped(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _seed_tree(src)
+    (dst / "docs").mkdir(parents=True)
+    (dst / "docs" / "a.txt").write_text("already here")  # conflict -> skipped
+
+    seen = []
+
+    def progress(p):
+        seen.append((p.done, p.total, p.stage))
+
+    job = MigrationJob(FileSystemSource(src), FileSystemTarget(dst))
+    job.plan()
+    stats = job.run(progress=progress)
+
+    assert stats.total == 3  # noqa: PLR2004
+    assert seen[-1][0] == stats.total  # the last emit reports full completion
+    assert all(total is None or total == stats.total for _, total, _ in seen)
+
+
+class _TreeSource:
+    """A library-like source: file and folder items."""
+
+    def __init__(self, items):
+        self._items = items
+
+    def label(self) -> str:
+        return "tree"
+
+    def list_items(self, progress=None):
+        return list(self._items)
+
+    def read(self, item):
+        return b"" if item.item_type == "folder" else b"content"
+
+    def checksum(self, item):
+        import hashlib
+
+        return hashlib.md5(self.read(item)).hexdigest()
+
+    def close(self) -> None:
+        pass
+
+
+def test_folder_tree_with_empty_folders_preserved_and_verified(tmp_path):
+    from office365.migration.base import MigrationItem
+
+    dst = tmp_path / "dst"
+    items = [
+        MigrationItem("site/keep", "keep/", item_type="folder"),
+        MigrationItem("site/keep/a.txt", "keep/a.txt", size_bytes=7, item_type="file"),
+        MigrationItem("site/empty", "empty/", item_type="folder"),
+    ]
+    job = MigrationJob(
+        _TreeSource(items),
+        FileSystemTarget(dst, include_folders=True),
+        options=MigrationOptions(conflict_resolution=ConflictResolution.OVERWRITE),
+    )
+    job.plan()
+    stats = job.run()
+
+    assert stats.errors == 0
+    assert stats.success == 3  # noqa: PLR2004
+    assert (dst / "keep" / "a.txt").read_text() == "content"
+    assert (dst / "empty").is_dir()  # empty folder was created
+    assert "keep/" in FileSystemTarget(dst, include_folders=True).list_paths()
+    assert job.verify().ok
+
+
+def test_filesystem_target_lists_folders_only_when_requested(tmp_path):
+    from office365.migration.base import MigrationItem
+
+    dst = tmp_path / "dst"
+    target = FileSystemTarget(dst)
+    target.write(MigrationItem("/x", "docs/sub/", item_type="folder"), b"")
+    target.write(MigrationItem("/x", "docs/sub/a.txt", size_bytes=1, item_type="file"), b"a")
+
+    assert target.list_paths() == ["docs/sub/a.txt"]  # default: files only
+    folder_aware = FileSystemTarget(dst, include_folders=True)
+    assert set(folder_aware.list_paths()) == {"docs/", "docs/sub/", "docs/sub/a.txt"}

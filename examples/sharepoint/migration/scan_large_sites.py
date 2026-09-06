@@ -21,24 +21,9 @@ import os
 
 from office365.migration import MigrationAssessor, MigrationTenantAssessor
 from office365.migration.assessment.scanners import AssessmentOptions
-from office365.runtime.operations import Progress
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.tenant.administration.tenant import Tenant
 from tests.settings import admin_site_url, client_id, password, tenant, username
-
-
-def progress_bar(description: str):
-    """tqdm-backed hook — the library only needs a ``Callable[[Progress], None]``."""
-    from tqdm import tqdm
-
-    bar = tqdm(desc=description)
-
-    def hook(p: Progress) -> None:
-        if p.total is not None and bar.total is None:
-            bar.total = p.total
-        bar.update(p.done - bar.n)
-
-    return hook
 
 
 def write_report(output_dir: str, scan) -> str | None:
@@ -55,9 +40,8 @@ def write_report(output_dir: str, scan) -> str | None:
 def main():
     parser = argparse.ArgumentParser(description="Write the SMAT LargeSites-detail scan report")
     parser.add_argument("--site-url", help="single site collection deep scan (skips tenant scope)")
-    parser.add_argument("--size-threshold", type=float, default=1.0, help="size guidance in GB (default: 500)")
+    parser.add_argument("--size-threshold", type=float, default=500.0, help="size guidance in GB")
     parser.add_argument("--output", default="/tmp", help="directory for the LargeSites-detail report")
-    parser.add_argument("--no-progress", action="store_true", help="do not show a tqdm progress bar")
     args = parser.parse_args()
 
     if args.site_url:
@@ -68,15 +52,15 @@ def main():
             disabled_scans={"permissions", "fields", "paths", "files"},
             large_site_threshold_gb=args.size_threshold,
         )
-        hook = None if args.no_progress else progress_bar("Assessing")
-        report = MigrationAssessor(ctx.web, options).assess(progress=hook).execute_query().value
+        print("Assessing site…", flush=True)
+        report = MigrationAssessor(ctx.web, options).assess().execute_query().value
     else:
         ctx = ClientContext(admin_site_url).with_username_and_password(
             tenant=tenant, client_id=client_id, username=username, password=password
         )
         options = AssessmentOptions(large_site_threshold_gb=args.size_threshold)
-        hook = None if args.no_progress else progress_bar("Scanning tenant")
-        report = MigrationTenantAssessor(Tenant(ctx), options).assess(progress=hook).execute_query().value
+        print("Scanning tenant…", flush=True)
+        report = MigrationTenantAssessor(Tenant(ctx), options).assess().execute_query().value
     print(report.summary())
 
     scan = report.scan_reports.get("LargeSites")

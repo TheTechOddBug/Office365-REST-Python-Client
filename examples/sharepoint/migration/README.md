@@ -26,10 +26,11 @@ Workflow: **scan/assess -> create a task -> monitor and report**.
 | Bulk-assess a list of sites | [`scanner_bulk.py`](./scanner_bulk.py) | Read access |
 | Generate the SMAT `LargeSites-detail.json` report (all tenant sites over 500 GB) | [`scan_large_sites.py`](./scan_large_sites.py) | SharePoint admin |
 | Copy a local directory tree (filesystem → filesystem) | [`migrate_files.py`](./migrate_files.py) | none (local) |
-| Export a SharePoint list to local JSON records | [`export_list_to_json.py`](./export_list_to_json.py) | Read access |
+| Export a SharePoint list to local JSON records | [`export_list.py`](export_list.py) | Read access |
 | Export/import a document library ↔ local files (`--import`, `--concurrency`) | [`migrate_library.py`](./migrate_library.py) | Read/Write access |
 | Migrate local files into a library via a migration session (parallel) | [`migrate_session.py`](./migrate_session.py) | Write access |
 | Migrate a tree and write one JSON migration report | [`export_reports.py`](./export_reports.py) | none (local) |
+| Monitor a local migration (live progress, Ctrl-C pause, re-run to resume) | [`monitor.py`](./monitor.py) | none (local) |
 
 ---
 
@@ -115,6 +116,20 @@ print(job.stats.summary())
 ```python
 job.export_reports("reports")            # SummaryReport / ItemReport / FailureReport (CSV + JSON)
 print(job.verify().summary())            # reconcile source vs target
+```
+
+Reports carry SPMT-style summary columns (total/migrated/not-migrated bytes & GB,
+items, GB/hour, run id, timestamps) plus per-item `file_name`, `extension`,
+`error`, and `error_code`; the failure report is only written when failures
+occur.
+
+To watch a migration live — progress bars for planning/migrating, and a clean
+SPMT-style pause on **Ctrl-C** (the checkpoint is saved; re-running the same
+command resumes) — use the monitor example (any local directories, no
+credentials needed):
+
+```bash
+python monitor.py --source ./data-a --target ./dst-a
 ```
 
 ### Incremental re-runs

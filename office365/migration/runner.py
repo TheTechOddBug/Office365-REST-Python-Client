@@ -79,12 +79,13 @@ class MigrationRunner:
         progress: Callable[["Progress"], None] | None,
         stop_event: Callable[[], bool] | None,
     ) -> MigrationStats:
-        stats = MigrationStats(total=0)
+        items = list(items)
+        stats = MigrationStats(total=len(items))
         for index, item in enumerate(items):
-            stats.total += 1
             status = checkpoint.status_of(item)
             if status in (ItemStatus.DONE, ItemStatus.SKIPPED):
                 stats.skipped += 1
+                self._report_progress(progress, stats, item)
                 continue
             if callable(stop_event) and stop_event():
                 checkpoint.phase = MigrationPhase.PAUSED
@@ -100,6 +101,7 @@ class MigrationRunner:
                     stats.skipped += 1
             except Exception as e:  # noqa: BLE001 — per-item errors are captured, not fatal
                 item.error = str(e)
+                item.error_code = type(e).__name__
                 checkpoint.record(item, ItemStatus.FAILED)
                 stats.errors += 1
             self._report_progress(progress, stats, item)
@@ -118,7 +120,8 @@ class MigrationRunner:
         progress: Callable[["Progress"], None] | None,
         stop_event: Callable[[], bool] | None,
     ) -> MigrationStats:
-        stats = MigrationStats(total=0)
+        items = list(items)
+        stats = MigrationStats(total=len(items))
         chunk: list[MigrationItem] = []
 
         def _flush() -> None:
@@ -130,6 +133,7 @@ class MigrationRunner:
             for item in chunk:
                 if item.dest_path in failed:
                     item.error = failed[item.dest_path]
+                    item.error_code = "TransferError"
                     checkpoint.record(item, ItemStatus.FAILED)
                     stats.errors += 1
                 else:
@@ -141,11 +145,11 @@ class MigrationRunner:
             if checkpoint_path is not None:
                 checkpoint.save(checkpoint_path)
 
-        for _index, item in enumerate(items):
-            stats.total += 1
+        for item in items:
             status = checkpoint.status_of(item)
             if status in (ItemStatus.DONE, ItemStatus.SKIPPED):
                 stats.skipped += 1
+                self._report_progress(progress, stats, item)
                 continue
             if callable(stop_event) and stop_event():
                 checkpoint.phase = MigrationPhase.PAUSED
@@ -154,10 +158,12 @@ class MigrationRunner:
             if options.incremental and _target_up_to_date(source, target, item):
                 checkpoint.record(item, ItemStatus.SKIPPED)
                 stats.skipped += 1
+                self._report_progress(progress, stats, item)
                 continue
             if options.conflict_resolution == ConflictResolution.SKIP and target.exists(item):
                 checkpoint.record(item, ItemStatus.SKIPPED)
                 stats.skipped += 1
+                self._report_progress(progress, stats, item)
                 continue
             chunk.append(item)
             if len(chunk) >= options.batch_size:

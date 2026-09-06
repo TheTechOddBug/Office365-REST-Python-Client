@@ -64,7 +64,13 @@ class FileCollection(EntityCollection[File]):
             content = path_or_file.read()
             return self.add(name, content, True)
 
-    def upload_content(self, content: bytes, file_name: str, chunk_size: int = _DEFAULT_CHUNK_SIZE) -> File:
+    def upload_content(
+        self,
+        content: bytes,
+        file_name: str,
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+        progress: Optional[ProgressCallback] = None,
+    ) -> File:
         """Uploads in-memory content, dispatching by size.
 
         Files at or below ``chunk_size`` use the simple :meth:`upload`; larger
@@ -75,13 +81,24 @@ class FileCollection(EntityCollection[File]):
             content (bytes): File content to upload.
             file_name (str): New file name.
             chunk_size (int): Upload-session chunk size / size threshold (bytes).
+            progress: Optional hook invoked with a ``Progress`` snapshot
+              (``done``/``total`` in bytes; per chunk for session uploads, once
+              after the upload completes for the simple path).
         """
         if len(content) <= chunk_size:
-            return self.upload(io.BytesIO(content), file_name)
+            file = self.upload(io.BytesIO(content), file_name)
+            if callable(progress):
+                size = len(content)
+
+                def _uploaded(_: Any) -> None:
+                    progress(Progress(done=size, total=size, stage="uploading"))
+
+                file.after_execute(_uploaded)
+            return file
         with tempfile.NamedTemporaryFile(suffix=file_name) as tmp:
             tmp.write(content)
             tmp.flush()
-            return self.create_upload_session(tmp.name, chunk_size=chunk_size, file_name=file_name)
+            return self.create_upload_session(tmp.name, chunk_size=chunk_size, file_name=file_name, progress=progress)
 
     def upload_with_checksum(self, file_object: IO, chunk_size: int = 1024) -> File:
         """ """

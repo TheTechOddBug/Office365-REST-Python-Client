@@ -15,13 +15,13 @@ See https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-oauth-ro
 import argparse
 
 from office365.sharepoint.client_context import ClientContext
-from tests.settings import client_id, password, site_url, tenant, username
+from tests.settings import client_id, password, team_site_url, tenant, username
 
 
 def main():
     argparse.ArgumentParser(description="Connect to SharePoint with username and password via MSAL ROPC").parse_args()
 
-    ctx = ClientContext(site_url).with_username_and_password(
+    ctx = ClientContext(team_site_url).with_username_and_password(
         tenant=tenant,
         client_id=client_id,
         username=username,
